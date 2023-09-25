@@ -97,6 +97,7 @@ func GlobalInit(customConf string) error {
 		return nil
 	}
 
+	//开启内置sshd-server，处理git请求
 	if conf.SSH.StartBuiltinServer {
 		ssh.Listen(conf.SSH, conf.Server.AppDataPath)
 		log.Info("SSH server started on %s:%v", conf.SSH.ListenHost, conf.SSH.ListenPort)

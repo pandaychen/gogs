@@ -132,6 +132,7 @@ var allowedCommands = map[string]db.AccessMode{
 	"git-receive-pack":   db.AccessModeWrite,
 }
 
+// git-shell serv 模式实现
 func runServ(c *cli.Context) error {
 	ctx := context.Background()
 	setup(c, "serv.log", true)

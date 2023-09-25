@@ -28,7 +28,7 @@ func main() {
 	app.Version = conf.App.Version
 	app.Commands = []cli.Command{
 		cmd.Web,
-		cmd.Serv,
+		cmd.Serv, //对接客户端git ssh keys 使用（适用于走ssh通道操作git服务）
 		cmd.Hook,
 		cmd.Cert,
 		cmd.Admin,

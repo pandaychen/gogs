@@ -34,6 +34,7 @@ func cleanCommand(cmd string) string {
 	return cmd[i:]
 }
 
+// handleServerConn：一个半简化的sshd 实现（仅支持git）
 func handleServerConn(keyID string, chans <-chan ssh.NewChannel) {
 	for newChan := range chans {
 		if newChan.ChannelType() != "session" {
@@ -52,9 +53,11 @@ func handleServerConn(keyID string, chans <-chan ssh.NewChannel) {
 				_ = ch.Close()
 			}()
 			for req := range in {
+				// 获取git payload
 				payload := cleanCommand(string(req.Payload))
 				switch req.Type {
 				case "env":
+					// 处理env行为
 					var env struct {
 						Name  string
 						Value string
@@ -77,14 +80,17 @@ func handleServerConn(keyID string, chans <-chan ssh.NewChannel) {
 					}
 
 				case "exec":
+					// 支持 authorized_keys 的 force command 机制（服务端实现）
 					cmdName := strings.TrimLeft(payload, "'()")
 					log.Trace("SSH: Payload: %v", cmdName)
 
+					// 核心：构建git-shell
 					args := []string{"serv", "key-" + keyID, "--config=" + conf.CustomConf}
 					log.Trace("SSH: Arguments: %v", args)
 					cmd := exec.Command(conf.AppPath(), args...)
 					cmd.Env = append(os.Environ(), "SSH_ORIGINAL_COMMAND="+cmdName)
 
+					// 对接命令的input、output
 					stdout, err := cmd.StdoutPipe()
 					if err != nil {
 						log.Error("SSH: StdoutPipe: %v", err)
@@ -111,6 +117,8 @@ func handleServerConn(keyID string, chans <-chan ssh.NewChannel) {
 					go func() {
 						_, _ = io.Copy(input, ch)
 					}()
+
+					// 数据流转发
 					_, _ = io.Copy(ch, stdout)
 					_, _ = io.Copy(ch.Stderr(), stderr)
 
@@ -119,6 +127,7 @@ func handleServerConn(keyID string, chans <-chan ssh.NewChannel) {
 						return
 					}
 
+					// command exit
 					_, _ = ch.SendRequest("exit-status", false, []byte{0, 0, 0, 0})
 					return
 				default:
@@ -128,6 +137,7 @@ func handleServerConn(keyID string, chans <-chan ssh.NewChannel) {
 	}
 }
 
+// 实际ssh处理方法
 func listen(config *ssh.ServerConfig, host string, port int) {
 	listener, err := net.Listen("tcp", host+":"+com.ToStr(port))
 	if err != nil {
@@ -166,6 +176,8 @@ func listen(config *ssh.ServerConfig, host string, port int) {
 }
 
 // Listen starts a SSH server listens on given port.
+
+// 启动内置的golang sshd server，代替opensshd
 func Listen(opts conf.SSHOpts, appDataPath string) {
 	config := &ssh.ServerConfig{
 		Config: ssh.Config{
